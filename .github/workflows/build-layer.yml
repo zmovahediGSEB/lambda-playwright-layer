@@ -28,7 +28,7 @@ jobs:
       - name: Prepare Lambda layer directory
         run: |
           mkdir -p layer/python
-          cp -r venv/lib/python3.9/site-packages/* layer/python/
+          cp -r venv/lib/python3.10/site-packages/* layer/python/
 
       - name: Create ZIP for Layer
         run: |
