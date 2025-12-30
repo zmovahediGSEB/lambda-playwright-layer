@@ -1,28 +1,32 @@
 name: Build Playwright Lambda Layer (Python 3.11)
 
 on:
-  workflow_dispatch:  # run manually
+  workflow_dispatch:  # allows manual run
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # ensures Chromium download can finish
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install Python 3.11
+    - name: Setup Python 3.11
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
 
-    - name: Install Playwright and Python deps
+    - name: Upgrade pip, setuptools, wheel
       run: |
-        python -m pip install --upgrade pip
-        pip install -r playwright-layer/requirements.txt -t playwright-layer/python
-        python -m playwright install chromium
+        python -m pip install --upgrade pip setuptools wheel
 
-    - name: Fix permissions (required for Lambda)
+    - name: Install Playwright and Python dependencies
+      run: |
+        pip install -r playwright-layer/requirements.txt -t playwright-layer/python
+        python -m playwright install chromium --with-deps
+
+    - name: Fix permissions for Lambda
       run: |
         chmod -R 755 playwright-layer/python
 
@@ -31,7 +35,7 @@ jobs:
         cd playwright-layer
         zip -r ../playwright-layer-python311.zip .
 
-    - name: Upload Artifacts (downloadable ZIP)
+    - name: Upload built ZIP artifact
       uses: actions/upload-artifact@v4
       with:
         name: playwright-layer-python311
