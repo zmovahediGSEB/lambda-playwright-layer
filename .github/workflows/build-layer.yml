@@ -1,4 +1,4 @@
-name: Build Lambda Layer for Playwright
+name: Build Lambda Layers for Playwright and BeautifulSoup
 
 on:
   push:
@@ -6,37 +6,73 @@ on:
       - main
 
 jobs:
-  build-layer:
+  build-layers:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
+      # ===========================
+      # Build Playwright Layer
+      # ===========================
       - name: Install Playwright and dependencies
         run: |
-          python -m venv venv
-          source venv/bin/activate
+          python -m venv venv_playwright
+          source venv_playwright/bin/activate
           pip install --upgrade pip
           pip install playwright
           playwright install
 
-      - name: Prepare Lambda layer directory
+      - name: Prepare Playwright Lambda layer directory
         run: |
-          mkdir -p layer/python
-          cp -r venv/lib/python3.10/site-packages/* layer/python/
+          mkdir -p layer_playwright/python
+          source venv_playwright/bin/activate
+          pip install --target=layer_playwright/python playwright
+          # Optionally, include browser binaries if needed
+          # playwright install --with-deps
 
-      - name: Create ZIP for Layer
+      - name: Create ZIP for Playwright Layer
         run: |
-          cd layer
+          cd layer_playwright
           zip -r ../playwright-layer.zip .
 
-      - name: Upload Layer Artifact
+      # ===========================
+      # Build BeautifulSoup Layer
+      # ===========================
+      - name: Install BeautifulSoup and dependencies
+        run: |
+          python -m venv venv_bs
+          source venv_bs/bin/activate
+          pip install --upgrade pip
+          pip install beautifulsoup4
+
+      - name: Prepare BeautifulSoup Lambda layer directory
+        run: |
+          mkdir -p layer_bs/python
+          source venv_bs/bin/activate
+          pip install --target=layer_bs/python beautifulsoup4
+
+      - name: Create ZIP for BeautifulSoup Layer
+        run: |
+          cd layer_bs
+          zip -r ../beautifulsoup-layer.zip .
+
+      # ===========================
+      # Upload Artifacts
+      # ===========================
+      - name: Upload Playwright Layer Artifact
         uses: actions/upload-artifact@v4
         with:
           name: playwright-layer
           path: playwright-layer.zip
+
+      - name: Upload BeautifulSoup Layer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: beautifulsoup-layer
+          path: beautifulsoup-layer.zip
