@@ -33,11 +33,12 @@ jobs:
 
       - name: Download Headless Chromium
         run: |
-          # Example: Download Chromium build suitable for Lambda
-          # You may need to find a compatible headless Chromium binary for Lambda (e.g., from https://github.com/alixaxel/chrome-aws-lambda)
           mkdir -p chromium
-          curl -L -o chromium/headless-chromium https://github.com/adieuadieu/serverless-chrome/releases/download/v1.0.0-57/stable-headless-chromium-amazonlinux-2.zip
-          unzip chromium/headless-chromium -d chromium
+          # Download the ZIP archive containing Chromium
+          curl -L -o chromium.zip https://github.com/adieuadieu/serverless-chrome/releases/download/v1.0.0-57/stable-headless-chromium-amazonlinux-2.zip
+          # Extract the ZIP archive into the chromium directory
+          unzip chromium.zip -d chromium
+          # Make the Chromium binary executable
           chmod +x chromium/headless-chromium
 
       - name: Prepare Lambda layer directory
