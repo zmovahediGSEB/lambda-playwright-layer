@@ -1,4 +1,4 @@
-name: Build Lambda Layers for Playwright and BeautifulSoup
+name: Build Lambda Layer for Selenium, ChromeDriver, and Headless Chromium
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build-layers:
+  build-selenium-layer:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -17,62 +17,46 @@ jobs:
         with:
           python-version: '3.10'
 
-      # ===========================
-      # Build Playwright Layer
-      # ===========================
-      - name: Install Playwright and dependencies
+      - name: Install Selenium and dependencies
         run: |
-          python -m venv venv_playwright
-          source venv_playwright/bin/activate
+          python -m venv venv_selenium
+          source venv_selenium/bin/activate
           pip install --upgrade pip
-          pip install playwright
-          playwright install
+          pip install selenium
 
-      - name: Prepare Playwright Lambda layer directory
+      - name: Download ChromeDriver
         run: |
-          mkdir -p layer_playwright/python
-          source venv_playwright/bin/activate
-          pip install --target=layer_playwright/python playwright
-          # Optionally, include browser binaries if needed
-          # playwright install --with-deps
+          CHROMEDRIVER_VERSION=$(curl -sS https://chromedriver.storage.googleapis.com/LATEST_RELEASE)
+          curl -O https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip
+          unzip chromedriver_linux64.zip -d chromedriver
+          chmod +x chromedriver/chromedriver
 
-      - name: Create ZIP for Playwright Layer
+      - name: Download Headless Chromium
         run: |
-          cd layer_playwright
-          zip -r ../playwright-layer.zip .
+          # Example: Download Chromium build suitable for Lambda
+          # You may need to find a compatible headless Chromium binary for Lambda (e.g., from https://github.com/alixaxel/chrome-aws-lambda)
+          mkdir -p chromium
+          curl -L -o chromium/headless-chromium https://github.com/adieuadieu/serverless-chrome/releases/download/106.0.5249.61-1/chromium-linux.zip
+          unzip chromium/headless-chromium -d chromium
+          chmod +x chromium/headless-chromium
 
-      # ===========================
-      # Build BeautifulSoup Layer
-      # ===========================
-      - name: Install BeautifulSoup and dependencies
+      - name: Prepare Lambda layer directory
         run: |
-          python -m venv venv_bs
-          source venv_bs/bin/activate
-          pip install --upgrade pip
-          pip install beautifulsoup4
+          mkdir -p layer/python
+          source venv_selenium/bin/activate
+          pip install --target=layer/python selenium
 
-      - name: Prepare BeautifulSoup Lambda layer directory
+          # Copy ChromeDriver and Chromium into the layer
+          cp -r chromedriver layer/python/
+          cp -r chromium layer/python/
+
+      - name: Create ZIP for Selenium Layer
         run: |
-          mkdir -p layer_bs/python
-          source venv_bs/bin/activate
-          pip install --target=layer_bs/python beautifulsoup4
+          cd layer
+          zip -r ../selenium-layer.zip .
 
-      - name: Create ZIP for BeautifulSoup Layer
-        run: |
-          cd layer_bs
-          zip -r ../beautifulsoup-layer.zip .
-
-      # ===========================
-      # Upload Artifacts
-      # ===========================
-      - name: Upload Playwright Layer Artifact
+      - name: Upload Layer Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-layer
-          path: playwright-layer.zip
-
-      - name: Upload BeautifulSoup Layer Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: beautifulsoup-layer
-          path: beautifulsoup-layer.zip
+          name: selenium-layer
+          path: selenium-layer.zip
