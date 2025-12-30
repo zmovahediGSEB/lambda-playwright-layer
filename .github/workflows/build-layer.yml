@@ -1,48 +1,42 @@
-name: Build Playwright Lambda Layer (Python 3.11)
+name: Build Lambda Layer for Playwright
 
 on:
-  workflow_dispatch:  # allows manual run
+  push:
+    branches:
+      - main
 
 jobs:
-  build:
+  build-layer:
     runs-on: ubuntu-latest
-    timeout-minutes: 10  # ensures Chromium download can finish
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-    - name: Setup Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-    - name: Upgrade pip, setuptools, wheel
-      run: |
-        python -m pip install --upgrade pip setuptools wheel
+      - name: Install Playwright and dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install playwright
+          playwright install
 
-    - name: Install Playwright and dependencies separately
-      run: |
-        mkdir temp_playwright
-        # Install Playwright only for the chromium download
-        pip install playwright -t temp_playwright
-        python -m playwright install chromium --with-deps
-        # Copy Playwright and its browser binaries to lambda folder
-        cp -r temp_playwright/* playwright-layer/python/
-        # Install other packages (BeautifulSoup) into lambda folder
-        pip install beautifulsoup4 -t playwright-layer/python
+      - name: Prepare Lambda layer directory
+        run: |
+          mkdir -p layer/python
+          cp -r venv/lib/python3.9/site-packages/* layer/python/
 
-    - name: Fix permissions for Lambda
-      run: |
-        chmod -R 755 playwright-layer/python
+      - name: Create ZIP for Layer
+        run: |
+          cd layer
+          zip -r ../playwright-layer.zip .
 
-    - name: Package layer into ZIP
-      run: |
-        cd playwright-layer
-        zip -r ../playwright-layer-python311.zip .
-
-    - name: Upload built ZIP artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: playwright-layer-python311
-        path: playwright-layer-python311.zip
+      - name: Upload Layer Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-layer
+          path: playwright-layer.zip
