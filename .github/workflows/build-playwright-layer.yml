@@ -52,7 +52,7 @@ jobs:
                 libdrm
 
               mkdir -p /layer/python
-              pip3 install playwright -t /layer/python
+              python3 install playwright -t /layer/python
 
               python3 -m playwright install chromium
 
