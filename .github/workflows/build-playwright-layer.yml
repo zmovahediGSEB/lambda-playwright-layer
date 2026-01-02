@@ -44,7 +44,10 @@ jobs:
 
             # Copy only Linux Chromium runtime into the layer
             mkdir -p /layer/python/ms-playwright
-            cp -r /root/.cache/ms-playwright/chromium-linux /layer/python/ms-playwright/chromium
+            # Find the installed Chromium directory (Linux)
+            CHROMIUM_SRC=$(find /root/.cache/ms-playwright -maxdepth 1 -type d -name "chromium-*" | head -n 1)
+            mkdir -p /layer/python/ms-playwright
+            cp -r "$CHROMIUM_SRC" /layer/python/ms-playwright/chromium
 
             # Remove unnecessary files inside Chromium
             rm -rf /layer/python/ms-playwright/chromium/locales
