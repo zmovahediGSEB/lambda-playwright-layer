@@ -15,17 +15,19 @@ jobs:
 
       - name: Build Playwright Lambda layer
         run: |
-          # Create artifacts directory for output zip
+          # Create artifacts folder for the zip
           mkdir -p $GITHUB_WORKSPACE/artifacts
 
+          # Run Amazon Linux 2023 container
           docker run --rm -v "$GITHUB_WORKSPACE:/work" amazonlinux:2023 bash -ex <<'EOF'
-            # Update and install system dependencies
+            # Update system and install dependencies
             dnf update -y
             dnf install -y python3 python3-pip zip unzip tar gzip \
               alsa-lib atk cups-libs dbus-glib gtk3 libX11 libXcomposite libXcursor libXdamage \
               libXext libXi libXrandr libXScrnSaver libXtst mesa-libEGL mesa-libgbm libdrm \
               xorg-x11-fonts-Type1 xorg-x11-fonts-misc wget ca-certificates bzip2 gzip xz tar which
-              
+
+            # Confirm Python version
             python3 --version
 
             # Prepare layer directory
@@ -35,7 +37,7 @@ jobs:
             python3 -m pip install --upgrade pip
             python3 -m pip install playwright==1.41.2 -t /layer/python
 
-            # Install Chromium using Playwright
+            # Install Chromium
             python3 -m playwright install chromium
 
             # Copy Chromium binaries into layer
@@ -46,10 +48,13 @@ jobs:
             rm -rf /layer/python/ms-playwright/firefox
             rm -rf /layer/python/ms-playwright/webkit
 
-            # Zip the layer
+            # Zip the layer to the host artifacts folder
             cd /layer
             zip -r /work/artifacts/playwright-layer.zip .
           EOF
+
+      - name: List artifacts folder
+        run: ls -lh $GITHUB_WORKSPACE/artifacts
 
       - name: Upload Lambda layer artifact
         uses: actions/upload-artifact@v4
