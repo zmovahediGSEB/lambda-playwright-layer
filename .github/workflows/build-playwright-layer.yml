@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Playwright Lambda layer using Python 3.10
+      - name: Build minimal Playwright Lambda layer
         run: |
           docker run --rm -v "$PWD:/work" python:3.10-slim bash -c '
             set -ex
@@ -34,19 +34,23 @@ jobs:
             python3 -m pip install --upgrade pip
             python3 -m pip install playwright==1.41.2 -t /layer/python
 
-            # Set PYTHONPATH so Python can find Playwright
-            export PYTHONPATH=/layer/python:$PYTHONPATH
+            # Remove Python unnecessary files
+            cd /layer/python
+            rm -rf tests examples docs
+            find . -name "__pycache__" -type d -exec rm -rf {} +
 
-            # Install Chromium only
+            # Install only Chromium
             python3 -m playwright install chromium
 
-            # Copy only Chromium binaries into the layer
+            # Copy only Linux Chromium runtime into the layer
             mkdir -p /layer/python/ms-playwright
-            cp -r /root/.cache/ms-playwright/chromium* /layer/python/ms-playwright/
+            cp -r /root/.cache/ms-playwright/chromium-linux /layer/python/ms-playwright/chromium
 
-            # Remove unnecessary browsers to save space
-            rm -rf /layer/python/ms-playwright/firefox
-            rm -rf /layer/python/ms-playwright/webkit
+            # Remove unnecessary files inside Chromium
+            rm -rf /layer/python/ms-playwright/chromium/locales
+            rm -rf /layer/python/ms-playwright/chromium/*.dmp
+            rm -rf /layer/python/ms-playwright/chromium/*_symbols
+            rm -rf /layer/python/ms-playwright/chromium/*.pak  # optional, test carefully
 
             # Zip the Lambda layer with maximum compression
             cd /layer
