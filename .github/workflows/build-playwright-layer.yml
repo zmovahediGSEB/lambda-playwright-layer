@@ -18,14 +18,11 @@ jobs:
           docker run --rm \
             -v "$PWD:/work" \
             amazonlinux:2 \
-            bash -c "
-              set -e
-
+            bash -ex << 'EOF'
               yum update -y
 
               yum install -y \
                 python3 \
-                python3-pip \
                 zip \
                 unzip \
                 tar \
@@ -52,7 +49,9 @@ jobs:
                 libdrm
 
               mkdir -p /layer/python
-              python3 install playwright -t /layer/python
+
+              python3 -m pip install --upgrade pip
+              python3 -m pip install playwright==1.41.2 -t /layer/python
 
               python3 -m playwright install chromium
 
@@ -61,10 +60,4 @@ jobs:
 
               cd /layer
               zip -r /work/playwright-layer.zip .
-            "
-
-      - name: Upload layer artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-lambda-layer
-          path: playwright-layer.zip
+          EOF
