@@ -1,9 +1,9 @@
-name: Build Playwright Lambda Layer
+name: Build Playwright Lambda Layer (Amazon Linux 2023, Python 3.10)
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build-layer:
@@ -15,49 +15,73 @@ jobs:
 
       - name: Build Playwright Lambda layer
         run: |
-          # Create artifacts folder for the zip
-          mkdir -p $GITHUB_WORKSPACE/artifacts
+          set -ex
 
-          # Run Amazon Linux 2023 container
-          docker run --rm -v "$GITHUB_WORKSPACE:/work" amazonlinux:2023 bash -ex <<'EOF'
-            # Update system and install dependencies
-            dnf update -y
-            dnf install -y python3 python3-pip zip unzip tar gzip \
-              alsa-lib atk cups-libs dbus-glib gtk3 libX11 libXcomposite libXcursor libXdamage \
-              libXext libXi libXrandr libXScrnSaver libXtst mesa-libEGL mesa-libgbm libdrm \
-              xorg-x11-fonts-Type1 xorg-x11-fonts-misc wget ca-certificates bzip2 gzip xz tar which
+          # Prepare working directory
+          LAYER_DIR="$PWD/layer"
+          mkdir -p "$LAYER_DIR/python"
 
-            # Confirm Python version
-            python3 --version
+          # Use Amazon Linux 2023 Docker to ensure compatibility with Lambda
+          docker run --rm -v "$PWD:/work" amazonlinux:2023 bash -c '
+            set -ex
 
-            # Prepare layer directory
-            mkdir -p /layer/python
+            # Install dependencies
+            dnf install -y \
+              python3 \
+              python3-pip \
+              zip \
+              unzip \
+              tar \
+              gzip \
+              libX11 \
+              libXcomposite \
+              libXcursor \
+              libXdamage \
+              libXext \
+              libXi \
+              libXrandr \
+              libXScrnSaver \
+              libXtst \
+              cups-libs \
+              dbus-glib \
+              alsa-lib \
+              atk \
+              gtk3 \
+              pango \
+              mesa-libEGL \
+              mesa-libgbm \
+              libdrm \
+              wget \
+              fontconfig \
+              freetype \
+              tar \
+              gzip \
+              unzip
 
-            # Upgrade pip and install Playwright Python
+            # Upgrade pip
             python3 -m pip install --upgrade pip
-            python3 -m pip install playwright==1.41.2 -t /layer/python
 
-            # Install Chromium
-            python3 -m playwright install chromium
+            # Install Playwright Python into /work/layer/python
+            python3 -m pip install playwright -t /work/layer/python
 
-            # Copy Chromium binaries into layer
-            mkdir -p /layer/python/ms-playwright
-            cp -r /root/.cache/ms-playwright/* /layer/python/ms-playwright/
+            # Download Chromium for Lambda (Amazon Linux 2023 compatible)
+            mkdir -p /work/layer/python/ms-playwright
+            cd /work/layer/python/ms-playwright
 
-            # Remove unnecessary browsers to reduce size
-            rm -rf /layer/python/ms-playwright/firefox
-            rm -rf /layer/python/ms-playwright/webkit
+            # Download Chromium & fonts (~60–80 MB) from official Playwright build
+            python3 -m playwright install chromium --with-deps --destination /work/layer/python/ms-playwright
 
-            # Zip the layer to the host artifacts folder
-            cd /layer
-            zip -r /work/artifacts/playwright-layer.zip .
-          EOF
+            # Remove unnecessary browsers to reduce size (optional)
+            rm -rf /work/layer/python/ms-playwright/firefox
+            rm -rf /work/layer/python/ms-playwright/webkit
 
-      - name: List artifacts folder
-        run: ls -lh $GITHUB_WORKSPACE/artifacts
+            # Go to layer root and zip
+            cd /work/layer
+            zip -r /work/playwright-layer.zip .
+          '
 
       - name: Upload Lambda layer artifact
         uses: actions/upload-artifact@v4
         with:
           name: playwright-lambda-layer
-          path: artifacts/playwright-layer.zip
+          path: playwright-layer.zip
