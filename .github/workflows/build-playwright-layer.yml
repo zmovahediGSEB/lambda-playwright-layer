@@ -1,9 +1,9 @@
-name: Build Playwright Lambda Layer (Amazon Linux 2023, Python 3.10)
+name: Build Playwright Lambda Layer
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   build-layer:
@@ -13,71 +13,44 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Playwright Lambda layer
+      - name: Build Playwright Lambda layer using Python 3.10
         run: |
-          set -ex
-
-          # Prepare working directory
-          LAYER_DIR="$PWD/layer"
-          mkdir -p "$LAYER_DIR/python"
-
-          # Use Amazon Linux 2023 Docker to ensure compatibility with Lambda
-          docker run --rm -v "$PWD:/work" amazonlinux:2023 bash -c '
+          docker run --rm -v "$PWD:/work" python:3.10-slim bash -c '
             set -ex
 
-            # Install dependencies
-            dnf install -y \
-              python3 \
-              python3-pip \
-              zip \
-              unzip \
-              tar \
-              gzip \
-              libX11 \
-              libXcomposite \
-              libXcursor \
-              libXdamage \
-              libXext \
-              libXi \
-              libXrandr \
-              libXScrnSaver \
-              libXtst \
-              cups-libs \
-              dbus-glib \
-              alsa-lib \
-              atk \
-              gtk3 \
-              pango \
-              mesa-libEGL \
-              mesa-libgbm \
-              libdrm \
-              wget \
-              fontconfig \
-              freetype \
-              tar \
-              gzip \
-              unzip
+            # Install system dependencies for Chromium
+            apt-get update
+            apt-get install -y \
+              zip unzip tar gzip libx11-6 libxcomposite1 libxcursor1 libxdamage1 \
+              libxext6 libxi6 libxrandr2 libxss1 libxtst6 libcups2 \
+              libasound2 libatk1.0-0 libgtk-3-0 \
+              libpango-1.0-0 libgl1 libnss3 fonts-dejavu-core wget ca-certificates \
+              && apt-get clean
 
-            # Upgrade pip
+            # Prepare Lambda layer directory
+            mkdir -p /layer/python
+
+            # Install Playwright into /layer/python
             python3 -m pip install --upgrade pip
+            python3 -m pip install playwright==1.41.2 -t /layer/python
 
-            # Install Playwright Python into /work/layer/python
-            python3 -m pip install playwright -t /work/layer/python
+            # Set PYTHONPATH so Python can find Playwright
+            export PYTHONPATH=/layer/python:$PYTHONPATH
 
-            # Download Chromium for Lambda (Amazon Linux 2023 compatible)
-            mkdir -p /work/layer/python/ms-playwright
-            cd /work/layer/python/ms-playwright
+            # Install Chromium only
+            python3 -m playwright install chromium
 
-            # Download Chromium & fonts (~60–80 MB) from official Playwright build
-            python3 -m playwright install chromium --with-deps --destination /work/layer/python/ms-playwright
+            # Copy only Chromium binaries into the layer
+            mkdir -p /layer/python/ms-playwright
+            cp -r /root/.cache/ms-playwright/chromium* /layer/python/ms-playwright/
 
-            # Remove unnecessary browsers to reduce size (optional)
-            rm -rf /work/layer/python/ms-playwright/firefox
-            rm -rf /work/layer/python/ms-playwright/webkit
+            # Remove unnecessary browsers to save space
+            rm -rf /layer/python/ms-playwright/firefox
+            rm -rf /layer/python/ms-playwright/webkit
 
-            # Go to layer root and zip
-            cd /work/layer
-            zip -r /work/playwright-layer.zip .
+            # Zip the Lambda layer with maximum compression
+            cd /layer
+            zip -9 -r /work/playwright-layer.zip .
           '
 
       - name: Upload Lambda layer artifact
