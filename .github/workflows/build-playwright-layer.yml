@@ -15,13 +15,18 @@ jobs:
 
       - name: Build Playwright Lambda layer
         run: |
-          docker run --rm -v "$PWD:/work" amazonlinux:2023 bash -ex <<'EOF'
-            # Install system dependencies for Playwright and Chromium
+          # Create artifacts directory for output zip
+          mkdir -p $GITHUB_WORKSPACE/artifacts
+
+          docker run --rm -v "$GITHUB_WORKSPACE:/work" amazonlinux:2023 bash -ex <<'EOF'
+            # Update and install system dependencies
             dnf update -y
             dnf install -y python3 python3-pip zip unzip tar gzip \
               alsa-lib atk cups-libs dbus-glib gtk3 libX11 libXcomposite libXcursor libXdamage \
               libXext libXi libXrandr libXScrnSaver libXtst mesa-libEGL mesa-libgbm libdrm \
               xorg-x11-fonts-Type1 xorg-x11-fonts-misc wget ca-certificates bzip2 gzip xz tar which
+              
+            python3 --version
 
             # Prepare layer directory
             mkdir -p /layer/python
@@ -30,24 +35,24 @@ jobs:
             python3 -m pip install --upgrade pip
             python3 -m pip install playwright==1.41.2 -t /layer/python
 
-            # Install Chromium via Playwright (inside /layer)
+            # Install Chromium using Playwright
             python3 -m playwright install chromium
 
-            # Copy browser binaries into the layer
+            # Copy Chromium binaries into layer
             mkdir -p /layer/python/ms-playwright
             cp -r /root/.cache/ms-playwright/* /layer/python/ms-playwright/
 
-            # Optional: remove unnecessary browsers to reduce size (e.g., keep only Chromium)
+            # Remove unnecessary browsers to reduce size
             rm -rf /layer/python/ms-playwright/firefox
             rm -rf /layer/python/ms-playwright/webkit
 
             # Zip the layer
             cd /layer
-            zip -r /work/playwright-layer.zip .
+            zip -r /work/artifacts/playwright-layer.zip .
           EOF
 
       - name: Upload Lambda layer artifact
         uses: actions/upload-artifact@v4
         with:
           name: playwright-lambda-layer
-          path: playwright-layer.zip
+          path: artifacts/playwright-layer.zip
