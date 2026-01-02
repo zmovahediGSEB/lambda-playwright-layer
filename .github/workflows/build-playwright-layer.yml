@@ -18,30 +18,33 @@ jobs:
           docker run --rm -v "$PWD:/work" python:3.10-slim bash -c '
             set -ex
 
-            # Install system dependencies for Chromium (Debian/Ubuntu equivalents)
+            # Install system dependencies for Chromium
             apt-get update
             apt-get install -y \
               zip unzip tar gzip libx11-6 libxcomposite1 libxcursor1 libxdamage1 \
               libxext6 libxi6 libxrandr2 libxss1 libxtst6 libcups2 \
-              dbus-glib-1-2 libasound2 libatk1.0-0 libgtk-3-0 \
+              libasound2 libatk1.0-0 libgtk-3-0 \
               libpango-1.0-0 libgl1 libnss3 fonts-dejavu-core wget ca-certificates \
               && apt-get clean
 
-            # Prepare layer directory
+            # Prepare Lambda layer directory
             mkdir -p /layer/python
 
-            # Install Playwright
+            # Install Playwright into /layer/python
             python3 -m pip install --upgrade pip
             python3 -m pip install playwright==1.41.2 -t /layer/python
 
-            # Install Chromium browser
+            # Set PYTHONPATH so Python can find Playwright
+            export PYTHONPATH=/layer/python:$PYTHONPATH
+
+            # Install Chromium
             python3 -m playwright install chromium
 
-            # Copy browser binaries into the layer
+            # Copy Playwright browser binaries into the layer
             mkdir -p /layer/python/ms-playwright
             cp -r /root/.cache/ms-playwright/* /layer/python/ms-playwright/
 
-            # Zip the layer
+            # Zip the Lambda layer
             cd /layer
             zip -r /work/playwright-layer.zip .
           '
