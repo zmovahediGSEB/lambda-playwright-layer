@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Playwright Lambda layer on Amazon Linux 2023
+      - name: Build Playwright Lambda layer on Amazon Linux 2023 with Python 3.10
         run: |
           docker run --rm -v "$PWD:/work" amazonlinux:2023 bash -c '
             set -ex
@@ -21,50 +21,25 @@ jobs:
             # Update system
             dnf update -y
 
-            # Install Python 3.10 and system libraries
-            dnf install -y \
-              python3 \
-              python3-pip \
-              zip \
-              unzip \
-              tar \
-              gzip \
-              libX11 \
-              libXcomposite \
-              libXcursor \
-              libXdamage \
-              libXext \
-              libXi \
-              libXrandr \
-              libXScrnSaver \
-              libXtst \
-              cups-libs \
-              dbus-glib \
-              alsa-lib \
-              atk \
-              gtk3 \
-              pango \
-              mesa-libEGL \
-              mesa-libgbm \
-              libdrm \
-              which \
-              xorg-x11-fonts-Type1 \
-              xorg-x11-fonts-misc
+            # Install Python 3.10 and pip
+            dnf install -y python3.10 python3.10-pip zip unzip tar gzip \
+              libX11 libXcomposite libXcursor libXdamage libXext libXi \
+              libXrandr libXScrnSaver libXtst cups-libs dbus-glib alsa-lib \
+              atk gtk3 pango mesa-libEGL mesa-libgbm libdrm \
+              xorg-x11-fonts-Type1 xorg-x11-fonts-misc which
 
             # Verify Python version
-            python3 --version
+            python3.10 --version
 
             # Prepare Lambda layer directory
             mkdir -p /layer/python
 
-            # Upgrade pip
-            python3 -m pip install --version
-
-            # Install Playwright Python 1.41.2
-            python3 -m pip install playwright==1.41.2 -t /layer/python
+            # Install Playwright Python 1.41.2 using Python 3.10
+            python3.10 -m pip install --upgrade pip
+            python3.10 -m pip install playwright==1.41.2 -t /layer/python
 
             # Install Chromium browser
-            python3 -m playwright install chromium
+            python3.10 -m playwright install chromium
 
             # Copy browser binaries into the layer
             mkdir -p /layer/python/ms-playwright
