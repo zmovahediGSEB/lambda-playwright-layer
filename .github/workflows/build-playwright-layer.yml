@@ -1,4 +1,4 @@
-name: Build Playwright Python Lambda Layer (small)
+name: Build Playwright Lambda Layer
 
 on:
   workflow_dispatch:
@@ -13,31 +13,38 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build small Playwright Python layer
+      - name: Build Playwright Lambda layer
         run: |
-          docker run --rm -v "$PWD:/work" python:3.10-slim bash -c '
-            set -ex
+          docker run --rm -v "$PWD:/work" amazonlinux:2023 bash -ex <<'EOF'
+            # Install system dependencies for Playwright and Chromium
+            dnf update -y
+            dnf install -y python3 python3-pip zip unzip tar gzip \
+              alsa-lib atk cups-libs dbus-glib gtk3 libX11 libXcomposite libXcursor libXdamage \
+              libXext libXi libXrandr libXScrnSaver libXtst mesa-libEGL mesa-libgbm libdrm \
+              xorg-x11-fonts-Type1 xorg-x11-fonts-misc wget ca-certificates bzip2 gzip xz tar which
 
-            # Install minimal system dependencies for Python packages
-            apt-get update
-            apt-get install -y \
-              zip unzip tar gzip wget ca-certificates \
-              && apt-get clean
-
-            # Prepare Lambda layer directory
+            # Prepare layer directory
             mkdir -p /layer/python
 
-            # Install Playwright Python package ONLY (no browser)
+            # Upgrade pip and install Playwright Python
             python3 -m pip install --upgrade pip
-            python3 -m pip install playwright==1.41.2 -t /layer/python --no-cache-dir
+            python3 -m pip install playwright==1.41.2 -t /layer/python
 
-            # Optional: remove tests to save space
-            find /layer/python -type d -name "tests" -exec rm -rf {} +
+            # Install Chromium via Playwright (inside /layer)
+            python3 -m playwright install chromium
+
+            # Copy browser binaries into the layer
+            mkdir -p /layer/python/ms-playwright
+            cp -r /root/.cache/ms-playwright/* /layer/python/ms-playwright/
+
+            # Optional: remove unnecessary browsers to reduce size (e.g., keep only Chromium)
+            rm -rf /layer/python/ms-playwright/firefox
+            rm -rf /layer/python/ms-playwright/webkit
 
             # Zip the layer
             cd /layer
             zip -r /work/playwright-layer.zip .
-          '
+          EOF
 
       - name: Upload Lambda layer artifact
         uses: actions/upload-artifact@v4
