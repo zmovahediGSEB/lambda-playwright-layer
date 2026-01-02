@@ -1,4 +1,4 @@
-name: Build Playwright Lambda Layer
+name: Build Playwright Python Lambda Layer (small)
 
 on:
   workflow_dispatch:
@@ -13,38 +13,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Playwright Lambda layer using Python 3.10
+      - name: Build small Playwright Python layer
         run: |
           docker run --rm -v "$PWD:/work" python:3.10-slim bash -c '
             set -ex
 
-            # Install system dependencies for Chromium
+            # Install minimal system dependencies for Python packages
             apt-get update
             apt-get install -y \
-              zip unzip tar gzip libx11-6 libxcomposite1 libxcursor1 libxdamage1 \
-              libxext6 libxi6 libxrandr2 libxss1 libxtst6 libcups2 \
-              libasound2 libatk1.0-0 libgtk-3-0 \
-              libpango-1.0-0 libgl1 libnss3 fonts-dejavu-core wget ca-certificates \
+              zip unzip tar gzip wget ca-certificates \
               && apt-get clean
 
             # Prepare Lambda layer directory
             mkdir -p /layer/python
 
-            # Install Playwright into /layer/python
+            # Install Playwright Python package ONLY (no browser)
             python3 -m pip install --upgrade pip
-            python3 -m pip install playwright==1.41.2 -t /layer/python
+            python3 -m pip install playwright==1.41.2 -t /layer/python --no-cache-dir
 
-            # Set PYTHONPATH so Python can find Playwright
-            export PYTHONPATH=/layer/python:$PYTHONPATH
+            # Optional: remove tests to save space
+            find /layer/python -type d -name "tests" -exec rm -rf {} +
 
-            # Install Chromium
-            python3 -m playwright install chromium
-
-            # Copy Playwright browser binaries into the layer
-            mkdir -p /layer/python/ms-playwright
-            cp -r /root/.cache/ms-playwright/* /layer/python/ms-playwright/
-
-            # Zip the Lambda layer
+            # Zip the layer
             cd /layer
             zip -r /work/playwright-layer.zip .
           '
