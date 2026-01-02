@@ -13,63 +13,67 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Playwright layer in Amazon Linux 2
+      - name: Build Playwright Lambda layer on Amazon Linux 2023
         run: |
-          docker run --rm \
-            -v "$PWD:/work" \
-            amazonlinux:2 \
-            bash -c '
-              set -ex
+          docker run --rm -v "$PWD:/work" amazonlinux:2023 bash -c '
+            set -ex
 
-              # System updates
-              yum update -y
+            # Update system
+            dnf update -y
 
-              # Install required system libraries for Chromium
-              yum install -y \
-                python3 \
-                zip \
-                unzip \
-                tar \
-                gzip \
-                libX11 \
-                libXcomposite \
-                libXcursor \
-                libXdamage \
-                libXext \
-                libXi \
-                libXrandr \
-                libXScrnSaver \
-                libXtst \
-                cups-libs \
-                dbus-glib \
-                alsa-lib \
-                atk \
-                gtk3 \
-                pango \
-                xorg-x11-fonts-Type1 \
-                xorg-x11-fonts-misc \
-                mesa-libEGL \
-                mesa-libgbm \
-                libdrm
+            # Install Python 3.10 and system libraries
+            dnf install -y \
+              python3 \
+              python3-pip \
+              zip \
+              unzip \
+              tar \
+              gzip \
+              libX11 \
+              libXcomposite \
+              libXcursor \
+              libXdamage \
+              libXext \
+              libXi \
+              libXrandr \
+              libXScrnSaver \
+              libXtst \
+              cups-libs \
+              dbus-glib \
+              alsa-lib \
+              atk \
+              gtk3 \
+              pango \
+              mesa-libEGL \
+              mesa-libgbm \
+              libdrm \
+              which \
+              xorg-x11-fonts-Type1 \
+              xorg-x11-fonts-misc
 
-              # Lambda layer directory structure
-              mkdir -p /layer/python
+            # Verify Python version
+            python3 --version
 
-              # Install Playwright Python (force same interpreter)
-              python3 -m pip install --upgrade pip
-              python3 -m pip install playwright==1.41.2 -t /layer/python
+            # Prepare Lambda layer directory
+            mkdir -p /layer/python
 
-              # Install Chromium browser
-              python3 -m playwright install chromium
+            # Upgrade pip
+            python3 -m pip install --upgrade pip
 
-              # Copy browser binaries into the layer
-              mkdir -p /layer/python/ms-playwright
-              cp -r /root/.cache/ms-playwright/* /layer/python/ms-playwright/
+            # Install Playwright Python 1.41.2
+            python3 -m pip install playwright==1.41.2 -t /layer/python
 
-              # Package the Lambda layer
-              cd /layer
-              zip -r /work/playwright-layer.zip .
-            '
+            # Install Chromium browser
+            python3 -m playwright install chromium
+
+            # Copy browser binaries into the layer
+            mkdir -p /layer/python/ms-playwright
+            cp -r /root/.cache/ms-playwright/* /layer/python/ms-playwright/
+
+            # Package the Lambda layer
+            cd /layer
+            zip -r /work/playwright-layer.zip .
+          '
 
       - name: Upload Lambda layer artifact
         uses: actions/upload-artifact@v4
