@@ -10,17 +10,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Playwright layer in Amazon Linux
+      - name: Build Playwright layer in Amazon Linux 2
         run: |
           docker run --rm \
             -v "$PWD:/work" \
             amazonlinux:2 \
-            bash -ex << 'EOF'
+            bash -c '
+              set -ex
+
+              # System updates
               yum update -y
 
+              # Install required system libraries for Chromium
               yum install -y \
                 python3 \
                 zip \
@@ -48,16 +52,27 @@ jobs:
                 mesa-libgbm \
                 libdrm
 
+              # Lambda layer directory structure
               mkdir -p /layer/python
 
+              # Install Playwright Python (force same interpreter)
               python3 -m pip install --upgrade pip
               python3 -m pip install playwright==1.41.2 -t /layer/python
 
+              # Install Chromium browser
               python3 -m playwright install chromium
 
+              # Copy browser binaries into the layer
               mkdir -p /layer/python/ms-playwright
               cp -r /root/.cache/ms-playwright/* /layer/python/ms-playwright/
 
+              # Package the Lambda layer
               cd /layer
               zip -r /work/playwright-layer.zip .
-          EOF
+            '
+
+      - name: Upload Lambda layer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-lambda-layer
+          path: playwright-layer.zip
